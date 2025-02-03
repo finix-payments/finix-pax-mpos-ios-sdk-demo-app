@@ -6,8 +6,8 @@
       "kind" : "remoteSourceControl",
       "location" : "https://github.com/finix-payments/PaxMposSDK",
       "state" : {
-        "revision" : "f0020cc433d3ee99e4c214fd3a767c9dc0d95baf",
-        "version" : "1.0.0"
+        "branch" : "main",
+        "revision" : "883b6cd5437d212c38619c77085c61624fe8f537"
       }
     }
   ],

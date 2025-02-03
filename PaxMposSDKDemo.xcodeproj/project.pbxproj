@@ -7,7 +7,7 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
-		D1A7D1602D41D2B600C00503 /* PaxMposSDK in Frameworks */ = {isa = PBXBuildFile; productRef = D1A7D15F2D41D2B600C00503 /* PaxMposSDK */; };
+		D115BFC52D514A3700EA7707 /* PaxMposSDK in Frameworks */ = {isa = PBXBuildFile; productRef = D115BFC42D514A3700EA7707 /* PaxMposSDK */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -56,7 +56,7 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
-				D1A7D1602D41D2B600C00503 /* PaxMposSDK in Frameworks */,
+				D115BFC52D514A3700EA7707 /* PaxMposSDK in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -117,7 +117,7 @@
 			);
 			name = PaxMposSDKDemo;
 			packageProductDependencies = (
-				D1A7D15F2D41D2B600C00503 /* PaxMposSDK */,
+				D115BFC42D514A3700EA7707 /* PaxMposSDK */,
 			);
 			productName = PaxMposSDKDemo;
 			productReference = D1A7D0A72D41CD0300C00503 /* PaxMposSDKDemo.app */;
@@ -202,7 +202,7 @@
 			mainGroup = D1A7D09E2D41CD0300C00503;
 			minimizedProjectReferenceProxies = 1;
 			packageReferences = (
-				D1A7D15E2D41D2B600C00503 /* XCRemoteSwiftPackageReference "PaxMposSDK" */,
+				D115BFC32D514A3700EA7707 /* XCRemoteSwiftPackageReference "PaxMposSDK" */,
 			);
 			preferredProjectObjectVersion = 77;
 			productRefGroup = D1A7D0A82D41CD0300C00503 /* Products */;
@@ -577,20 +577,20 @@
 /* End XCConfigurationList section */
 
 /* Begin XCRemoteSwiftPackageReference section */
-		D1A7D15E2D41D2B600C00503 /* XCRemoteSwiftPackageReference "PaxMposSDK" */ = {
+		D115BFC32D514A3700EA7707 /* XCRemoteSwiftPackageReference "PaxMposSDK" */ = {
 			isa = XCRemoteSwiftPackageReference;
 			repositoryURL = "https://github.com/finix-payments/PaxMposSDK";
 			requirement = {
-				kind = upToNextMinorVersion;
-				minimumVersion = 1.0.0;
+				branch = main;
+				kind = branch;
 			};
 		};
 /* End XCRemoteSwiftPackageReference section */
 
 /* Begin XCSwiftPackageProductDependency section */
-		D1A7D15F2D41D2B600C00503 /* PaxMposSDK */ = {
+		D115BFC42D514A3700EA7707 /* PaxMposSDK */ = {
 			isa = XCSwiftPackageProductDependency;
-			package = D1A7D15E2D41D2B600C00503 /* XCRemoteSwiftPackageReference "PaxMposSDK" */;
+			package = D115BFC32D514A3700EA7707 /* XCRemoteSwiftPackageReference "PaxMposSDK" */;
 			productName = PaxMposSDK;
 		};
 /* End XCSwiftPackageProductDependency section */
