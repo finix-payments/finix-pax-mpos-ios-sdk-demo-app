@@ -1,16 +1,16 @@
-# PaxMposSDKDemo
+# finix-pax-mpos-ios-sdk-demo-app
 
 ## Overview
-This repository hosts the demo application for [PaxMposSDK](https://github.com/finix-payments/PaxMposSDK)
+This repository hosts the demo application for [finix-pax-mpos-ios-sdk](https://github.com/finix-payments/finix-pax-mpos-ios-sdk)
 
 ## Installation Guide
 1. Clone the repository:
 ```bash
-git clone https://github.com/finix-payments/PaxMposSDKDemo
+git clone https://github.com/finix-payments/finix-pax-mpos-ios-sdk-demo-app.git
 ```
 2. Open the demo project:
 ```
-PaxMposSDKDemo/PaxMposSDKDemo.xcodeproj
+finix-pax-mpos-ios-sdk-demo-app/PaxMposSDKDemo.xcodeproj
 ```
 3. Run on a physical device:
     1. Tap `Scan for Devices` to show the device list view and start scanning.
