@@ -59,17 +59,13 @@ class ContentViewModel: ObservableObject {
         return connectedDevice != nil
     }
     
-    private lazy var credentials: Finix.APICredentials = {
-        Finix.APICredentials(username: username, password: password)
-    }()
-    
     /// Create a FinixConfig object from current values
-    var finixConfig: FinixConfig {
+    private var finixConfig: FinixConfig {
         FinixConfig(
             environment: environment,
             credentials: Finix.APICredentials(username: username, password: password),
-            application: "Finix-PAX-Test",
-            version: "2.0",
+            application: Bundle.main.bundleIdentifier ?? "Unknown",
+            version: Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "Unknown",
             merchantId: merchantId,
             mid: merchantMid,
             deviceType: .Pax,
@@ -80,10 +76,7 @@ class ContentViewModel: ObservableObject {
     private var cancellable: AnyCancellable?
     
     private(set) lazy var finixClient: FinixClient? = {
-        let finixClient = FinixClient(config: finixConfig)
-        finixClient.delegate = self
-        finixClient.interactionDelegate = self
-        return finixClient
+        return getFinixClient()
     }()
     
     init(showingAlert: Bool = false,
@@ -100,7 +93,7 @@ class ContentViewModel: ObservableObject {
             // TODO: refactor how username and password are used so we can get rid of configSaved.
             // Currently, they are set in FinixClient.init, so we need to recreate the client when they change.
             self.finixClient = nil
-            self.finixClient = FinixClient(config: self.finixConfig)
+            self.finixClient = self.getFinixClient()
             self.reinitFinixClient = false
         }
     }
@@ -156,6 +149,13 @@ class ContentViewModel: ObservableObject {
 
 // MARK: - Private methods
 extension ContentViewModel {
+    private func getFinixClient() -> FinixClient {
+        let finixClient = FinixClient(config: finixConfig)
+        finixClient.delegate = self
+        finixClient.interactionDelegate = self
+        return finixClient
+    }
+    
     private func startTransaction(transactionType: FinixClient.TransactionType) {
         guard let amountDouble = Double(amountText) else {
             alertObject = ("Missing transaction amount", "Enter a transaction amount")
