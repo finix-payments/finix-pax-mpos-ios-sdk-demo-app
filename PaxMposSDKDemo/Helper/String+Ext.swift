@@ -2,7 +2,7 @@
 //  String+Ext.swift
 //  PaxMposSDKDemo
 //
-//  Created by Tom Nguyen on 1/15/25.
+//  Created by Tom Nguyen on 1/26/25.
 //
 
 import Foundation

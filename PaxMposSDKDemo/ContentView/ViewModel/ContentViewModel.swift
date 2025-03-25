@@ -2,23 +2,15 @@
 //  ContentViewModel.swift
 //  PaxMposSDKDemo
 //
-//  Created by Tom Nguyen on 1/13/25.
+//  Created by Tom Nguyen on 1/26/25.
 //
 
 import SwiftUI
 import PaxMposSDK
+import Combine
 
 @MainActor
 class ContentViewModel: ObservableObject {
-    private let TEST_VERSION = "Finix-PAX-Test" // It's up to you to set this
-    private let TEST_APPLICATION = "Version=2.0" // It's up to you to set this
-    private let TEST_USERNAME = "UScZrfCKfP61PovTf3sAkh15"
-    private let TEST_PASSWORD = "ecd256d1-7950-403c-9be6-4a1c6eda9713"
-    private let TEST_ENVIRONMENT: Finix.Environment = .QA
-    private let TEST_MERCHANT_ID = "MU22sfqGzpXzjdve2eDukxbg"
-    private let TEST_MERCHANT_MID = "e7fc4707-bdef-4bbe-abce-6a99b3cc8562"
-    private let TEST_DEVICE_ID = "DVoqLzopqkDro71WnBciSWb4"
-    
     @Published var amountText: String = "3.14"
     @Published private(set) var logOutput: String = "Logs will appear here"
     @Published private(set) var connectedDeviceText: String = Constants.disconnectedText
@@ -32,6 +24,20 @@ class ContentViewModel: ObservableObject {
         }
     }
     @Published private(set) var devices: [Device] = []
+    
+    @Published var showConfigurationSheet: Bool = false
+    // Published configuration properties for UI bindings
+    @Published var environment: Finix.Environment = .QA
+    @Published var username: String = Constants.username
+    @Published var password: String = Constants.password
+    @Published var merchantId: String = Constants.merchantId
+    @Published var merchantMid: String = Constants.merchantMid
+    @Published var deviceId: String = Constants.deviceId
+    
+    // A flag to reinit the FinixClient when the configuration changes
+    @Published var reinitFinixClient: Bool = false
+    
+    private let storage: ConfigurationStorage
     
     var alertObject: (title: String, message: String) {
         didSet {
@@ -54,18 +60,27 @@ class ContentViewModel: ObservableObject {
     }
     
     private lazy var credentials: Finix.APICredentials = {
-        Finix.APICredentials(username: TEST_USERNAME, password: TEST_PASSWORD)
+        Finix.APICredentials(username: username, password: password)
     }()
     
-    private lazy var finixClient: FinixClient = {
-        let finixClient = FinixClient(config: FinixConfig(environment: TEST_ENVIRONMENT,
-                                                          credentials: credentials,
-                                                          application: TEST_APPLICATION,
-                                                          version: TEST_VERSION,
-                                                          merchantId: TEST_MERCHANT_ID,
-                                                          mid: TEST_MERCHANT_MID,
-                                                          deviceType: .Pax,
-                                                          deviceId: ""))
+    /// Create a FinixConfig object from current values
+    var finixConfig: FinixConfig {
+        FinixConfig(
+            environment: environment,
+            credentials: Finix.APICredentials(username: username, password: password),
+            application: "Finix-PAX-Test",
+            version: "2.0",
+            merchantId: merchantId,
+            mid: merchantMid,
+            deviceType: .Pax,
+            deviceId: deviceId
+        )
+    }
+    
+    private var cancellable: AnyCancellable?
+    
+    private(set) lazy var finixClient: FinixClient? = {
+        let finixClient = FinixClient(config: finixConfig)
         finixClient.delegate = self
         finixClient.interactionDelegate = self
         return finixClient
@@ -73,21 +88,32 @@ class ContentViewModel: ObservableObject {
     
     init(showingAlert: Bool = false,
          showingDeviceList: Bool = false,
-         alertObject: (title: String, message: String) = ("", "")) {
+         alertObject: (title: String, message: String) = ("", ""),
+         storage: ConfigurationStorage = UserDefaultsConfigurationStorage()) {
         self.showingAlert = showingAlert
         self.showingDeviceList = showingDeviceList
         self.alertObject = alertObject
+        self.storage = storage
+        
+        cancellable = $reinitFinixClient.sink { [weak self] reinitFinixClient in
+            guard let self = self, reinitFinixClient else { return }
+            // TODO: refactor how username and password are used so we can get rid of configSaved.
+            // Currently, they are set in FinixClient.init, so we need to recreate the client when they change.
+            self.finixClient = nil
+            self.finixClient = FinixClient(config: self.finixConfig)
+            self.reinitFinixClient = false
+        }
     }
     
     func onScanForDevicesTapped() {
         debugPrint("didTapScan")
         self.showingDeviceList = true
-        finixClient.startScan()
+        finixClient?.startScan()
     }
     
     func onDisconnectCurrentDeviceTapped() {
         debugPrint("didTapDisconnect")
-        _ = finixClient.disconnectDevice()
+        _ = finixClient?.disconnectDevice()
     }
     
     func onSaleTapped() {
@@ -107,7 +133,7 @@ class ContentViewModel: ObservableObject {
     
     func onCancelTapped() {
         debugPrint("didTapCancel")
-        finixClient.stopCurrentOperation()
+        finixClient?.stopCurrentOperation()
     }
 
     func onClearLogsTapped() {
@@ -116,7 +142,7 @@ class ContentViewModel: ObservableObject {
     
     func onUpdateFilesTapped() {
         debugPrint("didTapUpdateFiles")
-        finixClient.updateCardReaderFiles { file, progress, total in
+        finixClient?.updateCardReaderFiles { file, progress, total in
             self.appendLogOutput("uploading \(file): \(progress)/\(total)")
         }
     }
@@ -124,7 +150,7 @@ class ContentViewModel: ObservableObject {
     func selectDevice(_ device: Device) {
         self.showingDeviceList = false
         self.appendLogOutput("Connecting to device: \(device.name)")
-        self.finixClient.connectDevice(device.id)
+        self.finixClient?.connectDevice(device.id)
     }
 }
 
@@ -135,9 +161,9 @@ extension ContentViewModel {
             alertObject = ("Missing transaction amount", "Enter a transaction amount")
             return
         }
-        finixClient.update(deviceId: TEST_DEVICE_ID)
+        finixClient?.update(deviceId: deviceId)
         let transactionAmount = Currency(amount: Int(amountDouble * 100), code: .USD)
-        finixClient.startTransaction(amount: transactionAmount, type: transactionType) { transferResponse, error in
+        finixClient?.startTransaction(amount: transactionAmount, type: transactionType) { transferResponse, error in
             // run on the main thread only since we're doing UI updates
             // startTransaction's completion handler isn't guaranteed to return on main thread
             Task { @MainActor in
@@ -148,7 +174,7 @@ extension ContentViewModel {
                     return
                 }
 
-                print("got traceId =\(transferResponse.traceId)")
+                debugPrint("got traceId =\(transferResponse.traceId)")
                 debugPrint("transfer = \(transferResponse)")
                 self.alertObject = ("Transaction Done", "\(transferResponse)")
             }
@@ -207,5 +233,65 @@ extension ContentViewModel: FinixClientDeviceInteractionDelegate {
         Task { @MainActor in
             self.appendLogOutput("Card Removed")
         }
+    }
+}
+
+// MARK: - Configuration methods
+extension ContentViewModel {
+    /// Save configuration to Storage
+    func saveConfiguration() {
+        let configDict: [UserDefaultsKey: Any] = [
+            .environment: environment.stringValue,
+            .username: username,
+            .password: password,
+            .merchantId: merchantId,
+            .mid: merchantMid,
+            .deviceId: deviceId
+        ]
+        let stringKeyedDict = Dictionary(uniqueKeysWithValues: configDict.map { (key, value) in (key.rawValue, value) })
+        
+        storage.saveConfiguration(stringKeyedDict)
+        
+        reinitFinixClient = true
+    }
+    
+    func restoreDefaults() {
+        let configDict: [UserDefaultsKey: Any] = [
+            .environment: Finix.Environment.QA.stringValue,
+            .username: Constants.username,
+            .password: Constants.password,
+            .merchantId: Constants.merchantId,
+            .mid: Constants.merchantMid,
+            .deviceId: Constants.deviceId
+        ]
+        let stringKeyedDict = Dictionary(uniqueKeysWithValues: configDict.map { (key, value) in (key.rawValue, value) })
+        
+        storage.saveConfiguration(stringKeyedDict)
+        
+        environment = .QA
+        username = Constants.username
+        password = Constants.password
+        merchantId = Constants.merchantId
+        merchantMid = Constants.merchantMid
+        deviceId = Constants.deviceId
+        
+        reinitFinixClient = true
+    }
+
+    /// Load configuration from Storage
+    func loadConfiguration() {
+        guard let savedConfig = storage.loadConfiguration() else { return }
+        
+        if let envString = savedConfig[UserDefaultsKey.environment.rawValue] as? String,
+            let env = Finix.Environment(from: envString) {
+            environment = env
+        }
+        username = savedConfig[UserDefaultsKey.username.rawValue] as? String ?? ""
+        password = savedConfig[UserDefaultsKey.password.rawValue] as? String ?? ""
+        merchantId = savedConfig[UserDefaultsKey.merchantId.rawValue] as? String ?? ""
+        merchantMid = savedConfig[UserDefaultsKey.mid.rawValue] as? String ?? ""
+        deviceId = savedConfig[UserDefaultsKey.deviceId.rawValue] as? String ?? ""
+        
+        reinitFinixClient = true
     }
 }
