@@ -75,7 +75,7 @@ class ContentViewModel: ObservableObject {
     
     private var cancellable: AnyCancellable?
     
-    private(set) lazy var finixClient: FinixClient? = {
+    private(set) lazy var finixClient: FinixClient = {
         return getFinixClient()
     }()
     
@@ -92,7 +92,6 @@ class ContentViewModel: ObservableObject {
             guard let self = self, reinitFinixClient else { return }
             // TODO: refactor how username and password are used so we can get rid of configSaved.
             // Currently, they are set in FinixClient.init, so we need to recreate the client when they change.
-            self.finixClient = nil
             self.finixClient = self.getFinixClient()
             self.reinitFinixClient = false
         }
@@ -101,12 +100,12 @@ class ContentViewModel: ObservableObject {
     func onScanForDevicesTapped() {
         debugPrint("didTapScan")
         self.showingDeviceList = true
-        finixClient?.startScan()
+        finixClient.startScan()
     }
     
     func onDisconnectCurrentDeviceTapped() {
         debugPrint("didTapDisconnect")
-        _ = finixClient?.disconnectDevice()
+        _ = finixClient.disconnectDevice()
     }
     
     func onSaleTapped() {
@@ -126,7 +125,7 @@ class ContentViewModel: ObservableObject {
     
     func onCancelTapped() {
         debugPrint("didTapCancel")
-        finixClient?.stopCurrentOperation()
+        finixClient.stopCurrentOperation()
     }
 
     func onClearLogsTapped() {
@@ -135,15 +134,26 @@ class ContentViewModel: ObservableObject {
     
     func onUpdateFilesTapped() {
         debugPrint("didTapUpdateFiles")
-        finixClient?.updateCardReaderFiles { file, progress, total in
-            self.appendLogOutput("uploading \(file): \(progress)/\(total)")
-        }
+        finixClient.updateCardReaderFiles(statusCallback: { file, progress, total in
+            self.appendLogOutput("updating \(file): \(progress)/\(total)")
+        }, completion: {
+            self.appendLogOutput("finished updating files")
+        })
+    }
+    
+    func onResetDeviceTapped() {
+        debugPrint("didTapResetDevice")
+        finixClient.resetDevice(statusCallback: { file, progress, total in
+            self.appendLogOutput("updating \(file): \(progress)/\(total)")
+        }, completion: {
+            self.appendLogOutput("finished resetting device")
+        })
     }
     
     func selectDevice(_ device: Device) {
         self.showingDeviceList = false
-        self.appendLogOutput("Connecting to device: \(device.name)")
-        self.finixClient?.connectDevice(device.id)
+        self.appendLogOutput("Connecting to device: \(device.name)...")
+        self.finixClient.connectDevice(device.id)
     }
 }
 
@@ -155,15 +165,15 @@ extension ContentViewModel {
         finixClient.interactionDelegate = self
         return finixClient
     }
-    
+
     private func startTransaction(transactionType: FinixClient.TransactionType) {
         guard let amountDouble = Double(amountText) else {
             alertObject = ("Missing transaction amount", "Enter a transaction amount")
             return
         }
-        finixClient?.update(deviceId: deviceId)
+        finixClient.update(deviceId: deviceId)
         let transactionAmount = Currency(amount: Int(amountDouble * 100), code: .USD)
-        finixClient?.startTransaction(amount: transactionAmount, type: transactionType) { transferResponse, error in
+        finixClient.startTransaction(amount: transactionAmount, type: transactionType) { transferResponse, error in
             // run on the main thread only since we're doing UI updates
             // startTransaction's completion handler isn't guaranteed to return on main thread
             Task { @MainActor in

@@ -28,7 +28,8 @@ struct ContentView: View {
                         viewModel.onScanForDevicesTapped()
                     }
                     
-                    FinixButton(title: "Disconnect current device") {
+                    FinixButton(title: "Disconnect current device",
+                                isEnabled: viewModel.isDeviceConnected) {
                         viewModel.onDisconnectCurrentDeviceTapped()
                     }
                     
@@ -71,9 +72,16 @@ struct ContentView: View {
                         viewModel.onClearLogsTapped()
                     }
                     
-                    FinixButton(title: "Update Files",
-                                isEnabled: viewModel.isDeviceConnected) {
-                        viewModel.onUpdateFilesTapped()
+                    HStack(spacing: 16) {
+                        FinixButton(title: "Update Files",
+                                    isEnabled: viewModel.isDeviceConnected) {
+                            viewModel.onUpdateFilesTapped()
+                        }
+                        
+                        FinixButton(title: "Reset Device",
+                                    isEnabled: viewModel.isDeviceConnected) {
+                            viewModel.onResetDeviceTapped()
+                        }
                     }
                     
                     Text(viewModel.connectedDeviceText)
