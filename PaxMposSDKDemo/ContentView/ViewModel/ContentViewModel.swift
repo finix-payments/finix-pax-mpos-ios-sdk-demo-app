@@ -64,8 +64,6 @@ class ContentViewModel: ObservableObject {
         FinixConfig(
             environment: environment,
             credentials: Finix.APICredentials(username: username, password: password),
-            application: Bundle.main.bundleIdentifier ?? "Unknown",
-            version: Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "Unknown",
             merchantId: merchantId,
             mid: merchantMid,
             deviceType: .Pax,
@@ -132,18 +130,14 @@ class ContentViewModel: ObservableObject {
         self.logOutput = ""
     }
     
-    func onUpdateFilesTapped() {
-        debugPrint("didTapUpdateFiles")
-        finixClient.updateCardReaderFiles(statusCallback: { file, progress, total in
-            self.appendLogOutput("updating \(file): \(progress)/\(total)")
-        }, completion: {
-            self.appendLogOutput("finished updating files")
-        })
-    }
-    
     func onResetDeviceTapped() {
         debugPrint("didTapResetDevice")
-        finixClient.resetDevice(statusCallback: { file, progress, total in
+        guard let connectedDevice else {
+            appendLogOutput("No device connected")
+            return
+        }
+        
+        finixClient.resetDevice(deviceId: connectedDevice.deviceId, statusCallback: { file, progress, total in
             self.appendLogOutput("updating \(file): \(progress)/\(total)")
         }, completion: {
             self.appendLogOutput("finished resetting device")
