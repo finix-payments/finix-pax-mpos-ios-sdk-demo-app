@@ -72,16 +72,9 @@ struct ContentView: View {
                         viewModel.onClearLogsTapped()
                     }
                     
-                    HStack(spacing: 16) {
-                        FinixButton(title: "Update Files",
-                                    isEnabled: viewModel.isDeviceConnected) {
-                            viewModel.onUpdateFilesTapped()
-                        }
-                        
-                        FinixButton(title: "Reset Device",
-                                    isEnabled: viewModel.isDeviceConnected) {
-                            viewModel.onResetDeviceTapped()
-                        }
+                    FinixButton(title: "Reset Device",
+                                isEnabled: viewModel.isDeviceConnected) {
+                        viewModel.onResetDeviceTapped()
                     }
                     
                     Text(viewModel.connectedDeviceText)
