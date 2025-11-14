@@ -17,97 +17,49 @@ struct ContentView: View {
     
     var body: some View {
         NavigationView {
-            ZStack {
-                Color.white
-                    .edgesIgnoringSafeArea(.all)
-                    .onTapGesture {
-                        hideKeyboard()
-                    }
-                VStack(alignment: .center, spacing: 10) {
-                    FinixButton(title: "Scan for Devices") {
-                        viewModel.onScanForDevicesTapped()
-                    }
-                    
-                    FinixButton(title: "Disconnect current device",
-                                isEnabled: viewModel.isDeviceConnected) {
-                        viewModel.onDisconnectCurrentDeviceTapped()
-                    }
-                    
-                    TextField("Amount", text: $viewModel.amountText)
-                        .disabled(!viewModel.isDeviceConnected)
-                        .keyboardType(.decimalPad)
-                        .font(Constants.bodyFont)
-                        .foregroundColor(Constants.textColor)
-                        .frame(maxWidth: .infinity)
-                        .padding(16)
-                        .background(
-                            RoundedRectangle(cornerRadius: 8)
-                                .stroke(Color.gray, lineWidth: 1)
-                                .fill(viewModel.isDeviceConnected ? .white : Constants.buttonDisabledBackgroundColor)
-                        )
-                    
-                    HStack(spacing: 16) {
-                        FinixButton(title: "Sale",
-                                    isEnabled: viewModel.isDeviceConnected) {
-                            viewModel.onSaleTapped()
-                        }
-                        
-                        FinixButton(title: "Auth",
-                                    isEnabled: viewModel.isDeviceConnected) {
-                            viewModel.onAuthTapped()
-                        }
-                        
-                        FinixButton(title: "Refund",
-                                    isEnabled: viewModel.isDeviceConnected) {
-                            viewModel.onRefundTapped()
-                        }
-                    }
-                    
-                    FinixButton(title: "Cancel",
-                                isEnabled: viewModel.isDeviceConnected) {
-                        viewModel.onCancelTapped()
-                    }
-                    
-                    FinixButton(title: "Clear Logs") {
-                        viewModel.onClearLogsTapped()
-                    }
-                    
-                    FinixButton(title: "Reset Device",
-                                isEnabled: viewModel.isDeviceConnected) {
-                        viewModel.onResetDeviceTapped()
-                    }
-                    
-                    Text(viewModel.connectedDeviceText)
-                        .font(Constants.headerFont)
-                        .foregroundColor(Constants.textColor)
-                    
-                    ScrollView {
-                        ScrollViewReader { proxy in
-                            Text(viewModel.logOutput)
-                                .font(Constants.footnoteFont)
-                                .foregroundColor(Constants.textColor)
-                                .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .leading)
-                                .padding(16)
-                                .id("bottom")
-                                .onChange(of: viewModel.logOutput) {
-                                    withAnimation {
-                                        proxy.scrollTo("bottom", anchor: .bottom)
-                                    }
-                                }
-                        }
-                    }
-                    .background(Constants.buttonDisabledBackgroundColor)
-                    .cornerRadius(8)
-                    
+            Form {
+                if viewModel.isDeviceConnected {
+                    deviceSection
+                    transactionSection
+                } else {
+                    scanSection
                 }
-                .padding()
+                
+                logsSection
             }
             .toolbar {
+                ToolbarItemGroup(placement: .keyboard) {
+                    Spacer()
+                    Button("Done") {
+                        hideKeyboard()
+                    }
+                }
                 ToolbarItem(placement: .navigationBarTrailing) {
-                    Button(action: {
-                        viewModel.showConfigurationSheet = true
-                    }) {
-                        Image(systemName: "gearshape.fill")  // Settings icon
+                    Menu {
+                        Button {
+                            viewModel.showConfigurationSheet = true
+                        } label: {
+                            Label("Configuration", systemImage: "gearshape")
+                        }
+                        Button {
+                            viewModel.showOthersSheet = true
+                        } label: {
+                            Label("Others", systemImage: "ellipsis")
+                        }
+                        if viewModel.isDeviceConnected {
+                            Button {
+                                viewModel.onSendDebugLogTapped()
+                            } label: {
+                                Label("Send Debug Log", systemImage: "paperplane")
+                            }
+                            Button(role: .destructive) {
+                                viewModel.showResetDeviceAlert = true
+                            } label: {
+                                Label("Reset Device", systemImage: "arrow.counterclockwise")
+                            }
+                        }
+                    } label: {
+                        Image(systemName: "ellipsis.circle")
                             .renderingMode(.template)
                             .foregroundColor(Constants.buttonBackgroundColor)
                     }
@@ -119,26 +71,230 @@ struct ContentView: View {
                 Text(viewModel.alertObject.message)
             }
             .sheet(isPresented: $viewModel.showingDeviceList) {
-                DeviceListView(viewModel: viewModel)
+                NavigationView {
+                    DeviceListView(viewModel: viewModel)
+                }
+                .presentationDragIndicator(.visible)
             }
             .sheet(isPresented: $viewModel.showConfigurationSheet) {
                 NavigationView {
                     ConfigurationView(viewModel: viewModel)
-                        .navigationBarItems(trailing: Button("Save") {
-                            viewModel.saveConfiguration()
-                            viewModel.showConfigurationSheet = false
-                        })
-                        .navigationBarItems(leading: Button("Close") {
-                            viewModel.showConfigurationSheet = false
-                        })
                 }
-                .interactiveDismissDisabled()
+                .presentationDragIndicator(.visible)
             }
-            .preferredColorScheme(.light)
+            .sheet(isPresented: $viewModel.showOthersSheet) {
+                NavigationView {
+                    OthersView(viewModel: viewModel)
+                }
+                .presentationDragIndicator(.visible)
+            }
+            .alert("Reset Device?", isPresented: $viewModel.showResetDeviceAlert) {
+                Button("Cancel", role: .cancel) {}
+                Button("Reset", role: .destructive) {
+                    viewModel.onResetDeviceTapped()
+                }
+            } message: {
+                Text("This will clear and reload files on the connected device.")
+            }
+            .alert("Disconnect Device?", isPresented: $viewModel.showDisconnectDeviceAlert) {
+                Button("Cancel", role: .cancel) {}
+                Button("Disconnect") {
+                    viewModel.onDisconnectCurrentDeviceTapped()
+                }
+            } message: {
+                Text("This device will be unpaired and you'll need to scan for it again to reconnect.")
+            }
+            .navigationTitle("Finix + PAX D135")
+            .navigationBarTitleDisplayMode(.inline)
         }
-        .onAppear {
-            viewModel.loadConfiguration()
+        .preferredColorScheme(.light)
+    }
+    
+    // MARK: - Sections
+    
+    private var scanSection: some View {
+        Section(header: Text("DEVICE")) {
+            FinixButton(title: "Scan for Devices") {
+                viewModel.onScanForDevicesTapped()
+            }
+            .alignmentGuide(.listRowSeparatorLeading) { _ in
+                0
+            }
+            selectedEnvironment
         }
+    }
+    
+    private var deviceSection: some View {
+        Section(header: Text("DEVICE")) {
+            HStack {
+                Text(viewModel.connectedDeviceText)
+                    .font(Constants.bodyFont)
+                    .foregroundColor(Constants.textColor)
+                
+                Spacer()
+                
+                Button(action: {
+                    viewModel.showDisconnectDeviceAlert = true
+                }) {
+                    Text("Disconnect")
+                        .font(Constants.bodyFont)
+                        .foregroundColor(Constants.buttonBackgroundColor)
+                }
+            }
+            
+            selectedEnvironment
+        }
+    }
+    
+    private var transactionSection: some View {
+        Section(header: transactionHeader) {
+            HStack(spacing: 8) {
+                Text("Amount")
+                    .font(Constants.bodyFont)
+                    .foregroundColor(Constants.textColor)
+                    .frame(width: 100, alignment: .leading)
+                
+                HStack(spacing: 4) {
+                    Text("$")
+                        .font(Constants.bodyFont)
+                        .foregroundColor(.gray)
+                    
+                    TextField("0.00", text: $viewModel.amountText)
+                        .keyboardType(.decimalPad)
+                        .font(Constants.bodyFont)
+                        .foregroundColor(Constants.textColor)
+                }
+            }
+            
+            if !viewModel.userSession.tagsString.isEmpty {
+                Text("Tags: \(viewModel.userSession.tagsString)")
+                    .font(Constants.bodyFont)
+                    .foregroundColor(Constants.textColor)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+            }
+            
+            if viewModel.isSplitTransferTransaction {
+                VStack(alignment: .leading, spacing: 4) {
+                    Text("Split Transfers:")
+                        .font(Constants.bodyFont)
+                        .foregroundColor(Constants.textColor)
+                    
+                    ForEach(viewModel.userSession.splitTransferEntries) { entry in
+                        Text("Merchant: \(entry.merchantID), Amount: $\(entry.amount)")
+                            .font(Constants.bodyFont)
+                            .foregroundColor(Constants.textColor)
+                    }
+                }
+                .frame(maxWidth: .infinity, alignment: .leading)
+            }
+            
+            transactionButtons
+            
+            if viewModel.lastSuccessfulTransferID != "" {
+                HStack {
+                    Button(action: {
+                        viewModel.copyLastTransferIDToClipboard()
+                    }) {
+                        Image(systemName: "doc.on.doc.fill")
+                            .renderingMode(.template)
+                            .foregroundColor(Constants.buttonBackgroundColor)
+                    }
+                    Text(viewModel.lastSuccessfulTransferID)
+                        .font(Constants.bodyFont)
+                        .foregroundColor(Constants.textColor)
+                }
+            }
+        }
+    }
+    
+    private var transactionHeader: some View {
+        HStack(spacing: 8) {
+            Text("TRANSACTION")
+            
+            if [.readingCard, .processingCard].contains(viewModel.currentTransactionStatus) {
+                ProgressView()
+                    .scaleEffect(0.8)
+            }
+        }
+    }
+    
+    @ViewBuilder
+    private var transactionButtons: some View {
+        switch viewModel.currentTransactionStatus {
+        case .readingCard, .processingCard:
+            FinixButton(title: "Cancel \(viewModel.currentTransactionType.displayName)", style: .cancel, action: {
+                viewModel.onCancelTapped()
+            })
+        case .success:
+            FinixButton(title: "\(viewModel.currentTransactionType.displayName) Complete", style: .success, action: {})
+        case .failed:
+            FinixButton(title: "\(viewModel.currentTransactionType.displayName) Failed", style: .failed, action: {})
+        default:
+            HStack(spacing: 8) {
+                FinixButton(title: "Sale", style: .secondary) {
+                    viewModel.onSaleTapped()
+                }
+                
+                FinixButton(title: "Auth", style: .secondary) {
+                    viewModel.onAuthTapped()
+                }
+                
+                FinixButton(title: "Refund", style: .secondary) {
+                    viewModel.onRefundTapped()
+                }
+            }
+        }
+    }
+    
+    private var logsSection: some View {
+        Section(header: logsHeader) {
+            ScrollView {
+                ScrollViewReader { proxy in
+                    Text(viewModel.logOutput)
+                        .font(.system(size: 13, design: .monospaced))
+                        .foregroundColor(Constants.textColor)
+                        .frame(maxWidth: .infinity, minHeight: 276, alignment: .topLeading)
+                        .padding(12)
+                        .background(Color(uiColor: .systemGroupedBackground))
+                        .cornerRadius(8)
+                        .id("bottom")
+                        .onChange(of: viewModel.logOutput) {
+                            withAnimation {
+                                proxy.scrollTo("bottom", anchor: .bottom)
+                            }
+                        }
+                }
+            }
+            .frame(height: 300)
+            .padding(16)
+            .listRowInsets(EdgeInsets())
+            .listRowSeparator(.hidden)
+        }
+    }
+    
+    private var logsHeader: some View {
+        HStack {
+            Text("LOGS")
+            
+            Spacer()
+            
+            if !viewModel.logOutput.isEmpty && viewModel.logOutput != Constants.noActivityYet {
+                Button(action: {
+                    viewModel.onClearLogsTapped()
+                }) {
+                    Text("Clear")
+                        .font(Font.system(size: 15))
+                        .foregroundColor(Constants.buttonBackgroundColor)
+                }
+            }
+        }
+    }
+    
+    private var selectedEnvironment: some View {
+        Text("Selected environment: \(viewModel.userSession.allConfigs.selectedEnvironment.stringValue)")
+            .font(Constants.bodyFont)
+            .foregroundColor(Constants.textColor)
+            .frame(maxWidth: .infinity, alignment: .leading)
     }
 }
 
