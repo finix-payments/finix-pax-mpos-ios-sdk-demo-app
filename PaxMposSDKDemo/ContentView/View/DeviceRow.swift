@@ -11,16 +11,14 @@ struct DeviceRow: View {
     let device: Device
     
     var body: some View {
-        VStack(alignment: .leading) {
-            if !device.name.trim().isEmpty {
-                Text(device.name)
-                    .font(Constants.bodyFont)
-                    .fontWeight(.bold)
-            }
-            Text(device.id)
-                .font(Constants.footnoteFont)
-        }
+        Text(device.name)
+            .font(Constants.bodyFont)
+            .fontWeight(.semibold)
+            .foregroundColor(Constants.textColor)
         .frame(maxWidth: .infinity, alignment: .leading)
+        .padding(.vertical, 12)
+        .padding(.horizontal, 16)
+        .contentShape(Rectangle())
     }
 }
 

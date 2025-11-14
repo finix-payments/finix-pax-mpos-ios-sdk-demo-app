@@ -12,10 +12,10 @@ import Combine
 @MainActor
 class ContentViewModel: ObservableObject {
     @Published var amountText: String = "3.14"
-    @Published private(set) var logOutput: String = "Logs will appear here"
-    @Published private(set) var connectedDeviceText: String = Constants.disconnectedText
-    @Published var showingAlert: Bool
-    @Published var showingDeviceList: Bool {
+    @Published private(set) var logOutput: String = Constants.noActivityYet
+    @Published private(set) var connectedDeviceText: String = ""
+    @Published var showingAlert: Bool = false
+    @Published var showingDeviceList: Bool = false {
         didSet {
             if !showingDeviceList {
                 // Reset list of devices when the device list is dismissed
@@ -26,20 +26,18 @@ class ContentViewModel: ObservableObject {
     @Published private(set) var devices: [Device] = []
     
     @Published var showConfigurationSheet: Bool = false
-    // Published configuration properties for UI bindings
-    @Published var environment: Finix.Environment = .QA
-    @Published var username: String = Constants.username
-    @Published var password: String = Constants.password
-    @Published var merchantId: String = Constants.merchantId
-    @Published var merchantMid: String = Constants.merchantMid
-    @Published var deviceId: String = Constants.deviceId
+    @Published var showOthersSheet: Bool = false
+    @Published var showResetDeviceAlert: Bool = false
+    @Published var showDisconnectDeviceAlert: Bool = false
+    @Published var lastSuccessfulTransferID: String = ""
+    @Published private(set) var currentTransactionStatus: ProcessCardStatus?
+    @Published private(set) var currentTransactionType: FinixClient.TransactionType = .sale
     
-    // A flag to reinit the FinixClient when the configuration changes
-    @Published var reinitFinixClient: Bool = false
+    @Published private(set) var userSession: UserSessionData
     
-    private let storage: ConfigurationStorage
+    private let storage: UserSessionStorage = UserDefaultsUserSessionStorage()
     
-    var alertObject: (title: String, message: String) {
+    var alertObject: (title: String, message: String) = ("","") {
         didSet {
             showingAlert = true
         }
@@ -48,9 +46,9 @@ class ContentViewModel: ObservableObject {
     private var connectedDevice: DeviceInfo? {
         didSet {
             if let connectedDevice {
-                connectedDeviceText = String(format: Constants.connectedText, connectedDevice.name ?? Constants.unknownDeviceText)
+                connectedDeviceText = connectedDevice.name ?? Constants.unknownDeviceText
             } else {
-                connectedDeviceText = Constants.disconnectedText
+                connectedDeviceText = ""
             }
         }
     }
@@ -59,40 +57,36 @@ class ContentViewModel: ObservableObject {
         return connectedDevice != nil
     }
     
-    /// Create a FinixConfig object from current values
-    private var finixConfig: FinixConfig {
-        FinixConfig(
-            environment: environment,
-            credentials: Finix.APICredentials(username: username, password: password),
-            merchantId: merchantId,
-            mid: merchantMid,
-            deviceType: .Pax,
-            deviceId: deviceId
-        )
+    var isSplitTransferTransaction: Bool {
+        return userSession.enableSplitTransfers && !userSession.splitTransferEntries.isEmpty
     }
     
-    private var cancellable: AnyCancellable?
-    
     private(set) lazy var finixClient: FinixClient = {
-        return getFinixClient()
+        let configs = userSession.allConfigs.currentEnvConfigs()
+        let finixConfig = FinixConfig(
+            environment: userSession.allConfigs.selectedEnvironment,
+            credentials: Finix.APICredentials(username: configs.username, password: configs.password),
+            merchantId: configs.merchantId,
+            mid: configs.merchantMid,
+            deviceType: .Pax,
+            deviceId: configs.deviceId
+        )
+        
+        let finixClient = FinixClient(config: finixConfig)
+        finixClient.delegate = self
+        finixClient.interactionDelegate = self
+        return finixClient
     }()
     
-    init(showingAlert: Bool = false,
-         showingDeviceList: Bool = false,
-         alertObject: (title: String, message: String) = ("", ""),
-         storage: ConfigurationStorage = UserDefaultsConfigurationStorage()) {
-        self.showingAlert = showingAlert
-        self.showingDeviceList = showingDeviceList
-        self.alertObject = alertObject
-        self.storage = storage
-        
-        cancellable = $reinitFinixClient.sink { [weak self] reinitFinixClient in
-            guard let self = self, reinitFinixClient else { return }
-            // TODO: refactor how username and password are used so we can get rid of configSaved.
-            // Currently, they are set in FinixClient.init, so we need to recreate the client when they change.
-            self.finixClient = self.getFinixClient()
-            self.reinitFinixClient = false
-        }
+    private let logDateFormatter: DateFormatter = {
+        let formatter = DateFormatter()
+        formatter.dateFormat = "h:mm:ss a"
+        formatter.timeZone = TimeZone.current
+        return formatter
+    }()
+    
+    init() {
+        self.userSession = storage.loadUserSessionData()
     }
     
     func onScanForDevicesTapped() {
@@ -130,6 +124,68 @@ class ContentViewModel: ObservableObject {
         self.logOutput = ""
     }
     
+    func onSendDebugLogTapped() {
+        finixClient.sendDebugData()
+    }
+    
+    #warning("TODO: unused methods, consider remove")
+    func onForceParameterUpdateTapped() {
+        // Force parameter update by clearing UserDefaults and disconnecting/reconnecting
+        guard let connectedDevice = connectedDevice else {
+            appendLogOutput("No device connected to force parameter update")
+            return
+        }
+        
+        // Clear legacy tracking to force update on next connection
+        var updatedDevices = UserDefaults.standard.stringArray(forKey: "didInitialUpdateFiles") ?? []
+        updatedDevices.removeAll { $0 == connectedDevice.deviceId }
+        UserDefaults.standard.set(updatedDevices, forKey: "didInitialUpdateFiles")
+        
+        // Clear parameter versions to force update on next connection
+        let allVersions = UserDefaults.standard.dictionary(forKey: "parameterFileVersions") as? [String: [String: String]] ?? [:]
+        var updatedVersions = allVersions
+        updatedVersions.removeValue(forKey: connectedDevice.deviceId)
+        UserDefaults.standard.set(updatedVersions, forKey: "parameterFileVersions")
+        
+        appendLogOutput("Forced parameter update for \(connectedDevice.deviceId) - will update on next connection")
+    }
+    
+    #warning("TODO: unused methods, consider remove")
+    func checkParameterVersions() {
+        // Access parameter versions directly from UserDefaults for debugging
+        let allVersions = UserDefaults.standard.dictionary(forKey: "parameterFileVersions") as? [String: [String: String]] ?? [:]
+        
+        if allVersions.isEmpty {
+            appendLogOutput("No devices with parameter versions found")
+        } else {
+            appendLogOutput("Parameter versions for all devices:")
+            for (deviceId, versionInfo) in allVersions {
+                let emv = versionInfo["emvVersion"] ?? "unknown"
+                let clss = versionInfo["clssVersion"] ?? "unknown"
+                let updated = versionInfo["updatedAt"] ?? "unknown"
+                appendLogOutput("  • \(deviceId): EMV=\(emv), CLSS=\(clss), Updated=\(updated)")
+            }
+        }
+        
+        // Show current SDK versions
+        appendLogOutput("Current SDK versions:")
+        appendLogOutput("  • EMV: 2.02.15_20250908")
+        appendLogOutput("  • CLSS: 2.02.15_20250908")
+        
+        // Show if connected device needs update
+        if let connectedDevice = connectedDevice {
+            let deviceVersions = allVersions[connectedDevice.deviceId]
+            let storedEMV = deviceVersions?["emvVersion"] ?? "unknown"
+            let storedCLSS = deviceVersions?["clssVersion"] ?? "unknown"
+            
+            let needsEMVUpdate = storedEMV != "2.02.15_20250908"
+            let needsCLSSUpdate = storedCLSS != "2.02.15_20250908"
+            let needsUpdate = needsEMVUpdate || needsCLSSUpdate
+            
+            appendLogOutput("Connected device \(connectedDevice.deviceId) needs update: \(needsUpdate)")
+        }
+    }
+    
     func onResetDeviceTapped() {
         debugPrint("didTapResetDevice")
         guard let connectedDevice else {
@@ -149,45 +205,72 @@ class ContentViewModel: ObservableObject {
         self.appendLogOutput("Connecting to device: \(device.name)...")
         self.finixClient.connectDevice(device.id)
     }
+    
+    func copyLastTransferIDToClipboard() {
+        UIPasteboard.general.string = lastSuccessfulTransferID
+    }
+    
 }
 
 // MARK: - Private methods
 extension ContentViewModel {
-    private func getFinixClient() -> FinixClient {
-        let finixClient = FinixClient(config: finixConfig)
-        finixClient.delegate = self
-        finixClient.interactionDelegate = self
-        return finixClient
+    /// Update FinixClient configuration using client.update() instead of recreating
+    private func updateFinixClientConfiguration() {
+        // Update all configuration at once
+        let configs = userSession.allConfigs.currentEnvConfigs()
+        finixClient.update(
+            environment: userSession.allConfigs.selectedEnvironment,
+            credentials: Finix.APICredentials(username: configs.username, password: configs.password),
+            merchantId: configs.merchantId,
+            mid: configs.merchantMid,
+            deviceId: configs.deviceId
+        )
     }
 
     private func startTransaction(transactionType: FinixClient.TransactionType) {
+        self.currentTransactionType = transactionType
+        
         guard let amountDouble = Double(amountText) else {
             alertObject = ("Missing transaction amount", "Enter a transaction amount")
             return
         }
-        finixClient.update(deviceId: deviceId)
+        
         let transactionAmount = Currency(amount: Int(amountDouble * 100), code: .USD)
-        finixClient.startTransaction(amount: transactionAmount, type: transactionType) { transferResponse, error in
-            // run on the main thread only since we're doing UI updates
-            // startTransaction's completion handler isn't guaranteed to return on main thread
-            Task { @MainActor in
-                guard let transferResponse = transferResponse else {
-                    debugPrint("Transfer missing!")
-                    debugPrint("got error \(String(describing: error))")
-                    self.alertObject = ("Transfer Missing", "Got error \(String(describing: error))")
-                    return
+        
+        var splitTransfers: [SplitTransfer]? = nil
+        if isSplitTransferTransaction {
+            splitTransfers = userSession.splitTransferEntries.compactMap { entry in
+                guard let amountDouble = Double(entry.amount) else { return nil }
+                let amount = Int(amountDouble * 100)
+                var fee: Int?
+                if let feeDouble = Double(entry.fee) {
+                    fee = Int(feeDouble * 100)
                 }
-
-                debugPrint("got traceId =\(transferResponse.traceId)")
-                debugPrint("transfer = \(transferResponse)")
-                self.alertObject = ("Transaction Done", "\(transferResponse)")
+                let tags = parseTags(from: entry.tags)
+                return SplitTransfer(merchantID: entry.merchantID, amount: amount, fee: fee, tags: tags)
             }
         }
+        
+        finixClient.startTransaction(amount: transactionAmount, type: transactionType, splitTransfers: splitTransfers, tags: parseTags(from: userSession.tagsString))
+    }
+    
+    private func parseTags(from text: String) -> [String: String]? {
+        guard !text.isEmpty else { return nil }
+        var tags: [String: String] = [:]
+        let pairs = text.split(separator: ",").map { $0.trimmingCharacters(in: .whitespaces) }
+        for pair in pairs {
+            let keyValue = pair.split(separator: ":").map { $0.trimmingCharacters(in: .whitespaces) }
+            if keyValue.count == 2 {
+                tags[keyValue[0]] = keyValue[1]
+            }
+        }
+        return tags.isEmpty ? nil : tags
     }
     
     /// Append a new log message to the logOutput next line
     private func appendLogOutput(_ message: String) {
-        self.logOutput += "\n" + message
+        let timestamp = logDateFormatter.string(from: Date())
+        self.logOutput += "\n\n[\(timestamp)] \(message)"
     }
 }
 
@@ -195,31 +278,77 @@ extension ContentViewModel {
 extension ContentViewModel: FinixDelegate {
     nonisolated func didDiscoverDevice(_ deviceInfo: DeviceInfo) {
         Task { @MainActor in
+            guard deviceInfo.name?.lowercased().hasPrefix("d135") == true else { return }
+            
             devices.append(.init(id: deviceInfo.deviceId, name: deviceInfo.name ?? ""))
         }
     }
-
-    nonisolated func deviceDidConnect(_ deviceInfo: DeviceInfo) {
+    
+    nonisolated func deviceConnectionStatusChanged(_ state: DeviceConnectionState) {
         Task { @MainActor in
-            debugPrint("Device connected: \(deviceInfo.deviceId))")
-            self.appendLogOutput("Connected: \(deviceInfo.name ?? Constants.unknownDeviceText)")
-            connectedDevice = deviceInfo
+            switch state {
+            case .connecting, .initializing:
+                break
+            case .connected(let deviceInfo):
+                debugPrint("Device connected: \(deviceInfo.deviceId))")
+                self.appendLogOutput("Connected: \(deviceInfo.name ?? Constants.unknownDeviceText)")
+                connectedDevice = deviceInfo
+            case .disconnected:
+                let message = "Device disconnected"
+                debugPrint(message)
+                self.appendLogOutput(message)
+                connectedDevice = nil
+            case .error(let error):
+                debugPrint("Device connection error \(error)")
+                self.appendLogOutput("Device connection error \(error)")
+            @unknown default:
+                let message = "Unknown device connection state"
+                debugPrint(message)
+                self.appendLogOutput(message)
+            }
         }
     }
-
-    nonisolated func deviceDidDisconnect() {
+    
+    nonisolated func startTransactionStatusChanged(_ status: ProcessCardStatus) {
+        // run on the main thread only since we're doing UI updates
+        // startTransaction's completion handler isn't guaranteed to return on main thread
         Task { @MainActor in
-            let message = "Device disconnected"
-            debugPrint(message)
-            self.appendLogOutput(message)
-            connectedDevice = nil
+            self.currentTransactionStatus = status
+            
+            switch status {
+            case .readingCard:
+                break
+            case .processingCard:
+                self.appendLogOutput("Processing card...")
+            case .success(let transferResponse):
+                debugPrint("got traceId =\(transferResponse.traceId ?? "nil")")
+                debugPrint("transfer = \(transferResponse)")
+                self.lastSuccessfulTransferID = transferResponse.id ?? ""
+                self.appendLogOutput("Successfully processed $\(amountText) \(currentTransactionType.displayName)")
+                
+                onTransactionFinished()
+            case .failed(let error):
+                debugPrint("Transfer missing!")
+                debugPrint("got error \(String(describing: error))")
+                self.appendLogOutput("Transaction failed: \(String(describing: error))")
+                
+                onTransactionFinished()
+            @unknown default:
+                debugPrint("Got unknown default error!")
+                self.appendLogOutput("Transaction failed: Unknown error")
+            }
         }
     }
-
-    nonisolated func deviceDidError(_ error: any Error) {
-        Task { @MainActor in
-            debugPrint("Device connection error \(error)")
-            self.appendLogOutput("Device connection error \(error)")
+    
+    private func onTransactionFinished() {
+        // Haptic feedback
+        let generator = UINotificationFeedbackGenerator()
+        generator.notificationOccurred(.success)
+        
+        // Wait for 2 seconds then reset
+        Task {
+            try? await Task.sleep(nanoseconds: 2_000_000_000)
+            self.currentTransactionStatus = nil
         }
     }
 }
@@ -232,70 +361,39 @@ extension ContentViewModel: FinixClientDeviceInteractionDelegate {
             self.appendLogOutput(text)
         }
     }
-
-    nonisolated func onRemoveCard() {
-        Task { @MainActor in
-            self.appendLogOutput("Card Removed")
-        }
+    
+    nonisolated func promptForCard(_ mode: CardSearchMode) {
+        debugPrint("PROMPT FOR CARD, MODE: \(mode)")
     }
 }
 
 // MARK: - Configuration methods
 extension ContentViewModel {
-    /// Save configuration to Storage
-    func saveConfiguration() {
-        let configDict: [UserDefaultsKey: Any] = [
-            .environment: environment.stringValue,
-            .username: username,
-            .password: password,
-            .merchantId: merchantId,
-            .mid: merchantMid,
-            .deviceId: deviceId
-        ]
-        let stringKeyedDict = Dictionary(uniqueKeysWithValues: configDict.map { (key, value) in (key.rawValue, value) })
-        
-        storage.saveConfiguration(stringKeyedDict)
-        
-        reinitFinixClient = true
+    func saveConfiguration(_ allConfigs: AllEnvironmentConfigurations) {
+        do {
+            var tempUserSession = self.userSession
+            tempUserSession.allConfigs = allConfigs
+            try storage.saveUserSessionData(tempUserSession)
+            self.userSession = tempUserSession
+            updateFinixClientConfiguration()
+        } catch {
+            alertObject = ("Failed to save configurations", "Please try again.")
+        }
     }
     
-    func restoreDefaults() {
-        let configDict: [UserDefaultsKey: Any] = [
-            .environment: Finix.Environment.QA.stringValue,
-            .username: Constants.username,
-            .password: Constants.password,
-            .merchantId: Constants.merchantId,
-            .mid: Constants.merchantMid,
-            .deviceId: Constants.deviceId
-        ]
-        let stringKeyedDict = Dictionary(uniqueKeysWithValues: configDict.map { (key, value) in (key.rawValue, value) })
-        
-        storage.saveConfiguration(stringKeyedDict)
-        
-        environment = .QA
-        username = Constants.username
-        password = Constants.password
-        merchantId = Constants.merchantId
-        merchantMid = Constants.merchantMid
-        deviceId = Constants.deviceId
-        
-        reinitFinixClient = true
-    }
-
-    /// Load configuration from Storage
-    func loadConfiguration() {
-        guard let savedConfig = storage.loadConfiguration() else { return }
-        
-        if let envString = savedConfig[UserDefaultsKey.environment.rawValue] as? String,
-            let env = Finix.Environment(from: envString) {
-            environment = env
+    func saveOthersEntries(
+        enableSplitTransfers: Bool,
+        splitTransferEntries: [SplitTransferEntry],
+        tagsString: String) {
+        do {
+            var tempUserSession = self.userSession
+            tempUserSession.enableSplitTransfers = enableSplitTransfers
+            tempUserSession.splitTransferEntries = splitTransferEntries
+            tempUserSession.tagsString = tagsString
+            try storage.saveUserSessionData(tempUserSession)
+            self.userSession = tempUserSession
+        } catch {
+            alertObject = ("Failed to save entries", "Please try again.")
         }
-        username = savedConfig[UserDefaultsKey.username.rawValue] as? String ?? ""
-        password = savedConfig[UserDefaultsKey.password.rawValue] as? String ?? ""
-        merchantId = savedConfig[UserDefaultsKey.merchantId.rawValue] as? String ?? ""
-        merchantMid = savedConfig[UserDefaultsKey.mid.rawValue] as? String ?? ""
-        deviceId = savedConfig[UserDefaultsKey.deviceId.rawValue] as? String ?? ""
-        
-        reinitFinixClient = true
     }
 }
