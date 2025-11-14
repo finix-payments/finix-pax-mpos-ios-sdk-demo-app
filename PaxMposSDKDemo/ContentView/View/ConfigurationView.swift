@@ -36,7 +36,6 @@ struct ConfigurationView: View {
                 Picker("Environment", selection: $allConfigs.selectedEnvironment) {
                     Text(Finix.Environment.Production.stringValue).tag(Finix.Environment.Production)
                     Text(Finix.Environment.Sandbox.stringValue).tag(Finix.Environment.Sandbox)
-                    Text(Finix.Environment.QA.stringValue).tag(Finix.Environment.QA)
                 }
                 .pickerStyle(SegmentedPickerStyle())
                 .listRowInsets(EdgeInsets())
