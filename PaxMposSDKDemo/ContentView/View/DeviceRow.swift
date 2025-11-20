@@ -12,8 +12,7 @@ struct DeviceRow: View {
     
     var body: some View {
         Text(device.name)
-            .font(Constants.bodyFont)
-            .fontWeight(.semibold)
+            .font(.system(size: 17, weight: .semibold))
             .foregroundColor(Constants.textColor)
         .frame(maxWidth: .infinity, alignment: .leading)
         .padding(.vertical, 12)

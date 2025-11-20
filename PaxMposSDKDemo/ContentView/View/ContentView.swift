@@ -74,19 +74,16 @@ struct ContentView: View {
                 NavigationView {
                     DeviceListView(viewModel: viewModel)
                 }
-                .presentationDragIndicator(.visible)
             }
             .sheet(isPresented: $viewModel.showConfigurationSheet) {
                 NavigationView {
                     ConfigurationView(viewModel: viewModel)
                 }
-                .presentationDragIndicator(.visible)
             }
             .sheet(isPresented: $viewModel.showOthersSheet) {
                 NavigationView {
                     OthersView(viewModel: viewModel)
                 }
-                .presentationDragIndicator(.visible)
             }
             .alert("Reset Device?", isPresented: $viewModel.showResetDeviceAlert) {
                 Button("Cancel", role: .cancel) {}
@@ -116,9 +113,6 @@ struct ContentView: View {
         Section(header: Text("DEVICE")) {
             FinixButton(title: "Scan for Devices") {
                 viewModel.onScanForDevicesTapped()
-            }
-            .alignmentGuide(.listRowSeparatorLeading) { _ in
-                0
             }
             selectedEnvironment
         }
@@ -258,7 +252,7 @@ struct ContentView: View {
                         .background(Color(uiColor: .systemGroupedBackground))
                         .cornerRadius(8)
                         .id("bottom")
-                        .onChange(of: viewModel.logOutput) {
+                        .onChange(of: viewModel.logOutput) { _ in
                             withAnimation {
                                 proxy.scrollTo("bottom", anchor: .bottom)
                             }

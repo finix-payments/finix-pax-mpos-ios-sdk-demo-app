@@ -1,6 +1,6 @@
 //
 //  OthersView.swift
-//  TestHost
+//  PaxMposSDKDemo
 //
 //  Created by Tom Nguyen on 1/26/25.
 //
@@ -126,7 +126,7 @@ struct OthersView: View {
                         showValidationAlert = true
                     }
                 }
-                .fontWeight(.medium)
+                .font(.system(size: 17, weight: .medium))
             }
         }
         .alert("Validation Error", isPresented: $showValidationAlert) {
