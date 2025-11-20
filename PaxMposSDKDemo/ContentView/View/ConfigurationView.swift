@@ -106,7 +106,7 @@ struct ConfigurationView: View {
                         showValidationAlert = true
                     }
                 }
-                .fontWeight(.medium)
+                .font(.system(size: 17, weight: .medium))
             }
         }
         .alert("Missing Required Fields", isPresented: $showValidationAlert) {
