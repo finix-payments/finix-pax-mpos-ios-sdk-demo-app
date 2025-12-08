@@ -65,6 +65,13 @@ struct ConfigurationView: View {
                         .frame(width: 100, alignment: .leading)
                     ClearableTextField(title: "Enter Merchant MID", text: currentConfig.merchantMid)
                 }
+                
+                HStack {
+                    Text("Buyer ID")
+                        .font(Constants.headerFont)
+                        .frame(width: 100, alignment: .leading)
+                    ClearableTextField(title: "Enter Buyer Identity ID", text: currentConfig.buyerIdentityId)
+                }
             }
             
             Section(header: Text("API KEY")) {

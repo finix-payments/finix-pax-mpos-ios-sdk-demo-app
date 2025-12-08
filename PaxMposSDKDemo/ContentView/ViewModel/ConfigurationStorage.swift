@@ -14,6 +14,7 @@ struct EnvironmentConfiguration: Codable {
     var merchantId: String = ""
     var merchantMid: String = ""
     var deviceId: String = ""
+    var buyerIdentityId: String = ""
 }
 
 struct AllEnvironmentConfigurations: Codable {

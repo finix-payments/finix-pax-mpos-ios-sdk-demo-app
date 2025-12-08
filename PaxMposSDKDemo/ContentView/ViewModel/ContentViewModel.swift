@@ -251,7 +251,14 @@ extension ContentViewModel {
             }
         }
         
-        finixClient.startTransaction(amount: transactionAmount, type: transactionType, splitTransfers: splitTransfers, tags: parseTags(from: userSession.tagsString))
+        let configs = userSession.allConfigs.currentEnvConfigs()
+        finixClient.startTransaction(
+            amount: transactionAmount,
+            type: transactionType,
+            splitTransfers: splitTransfers,
+            tags: parseTags(from: userSession.tagsString),
+            buyerIdentityId: configs.buyerIdentityId
+        )
     }
     
     private func parseTags(from text: String) -> [String: String]? {
