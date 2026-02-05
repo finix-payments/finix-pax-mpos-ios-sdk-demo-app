@@ -70,7 +70,22 @@ struct ConfigurationView: View {
                     Text("Buyer ID")
                         .font(Constants.headerFont)
                         .frame(width: 100, alignment: .leading)
-                    ClearableTextField(title: "Enter Buyer Identity ID", text: currentConfig.buyerIdentityId)
+                    TextField("Optional", text: Binding(
+                        get: { currentConfig.wrappedValue.buyerIdentityId ?? "" },
+                        set: { currentConfig.wrappedValue.buyerIdentityId = $0.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ? nil : $0 }
+                    ))
+                    .overlay(alignment: .trailing) {
+                        if let buyerId = currentConfig.wrappedValue.buyerIdentityId, !buyerId.isEmpty {
+                            Button(action: {
+                                currentConfig.wrappedValue.buyerIdentityId = nil
+                            }) {
+                                Image(systemName: "xmark.circle.fill")
+                                    .foregroundColor(.secondary)
+                                    .padding(5)
+                            }
+                            .contentShape(Rectangle())
+                        }
+                    }
                 }
             }
             
