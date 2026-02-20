@@ -283,6 +283,12 @@ extension ContentViewModel {
 
 // MARK: - FinixDelegate
 extension ContentViewModel: FinixDelegate {
+    nonisolated func onDeviceSetupProgress(stage: String, progress: Int) {
+        Task { @MainActor in
+            self.appendLogOutput("Device setup: \(stage) - \(progress)%")
+        }
+    }
+    
     nonisolated func didDiscoverDevice(_ deviceInfo: DeviceInfo) {
         Task { @MainActor in
             guard deviceInfo.name?.lowercased().hasPrefix("d135") == true else { return }
