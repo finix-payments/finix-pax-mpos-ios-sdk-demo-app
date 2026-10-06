@@ -215,7 +215,7 @@
 			mainGroup = D1A7D09E2D41CD0300C00503;
 			minimizedProjectReferenceProxies = 1;
 			packageReferences = (
-				D115BFC32D514A3700EA7707 /* XCRemoteSwiftPackageReference "PaxMposSDK" */,
+				D115BFC32D514A3700EA7707 /* XCRemoteSwiftPackageReference "finix-pax-mpos-ios-sdk" */,
 			);
 			preferredProjectObjectVersion = 77;
 			productRefGroup = D1A7D0A82D41CD0300C00503 /* Products */;
@@ -592,12 +592,12 @@
 /* End XCConfigurationList section */
 
 /* Begin XCRemoteSwiftPackageReference section */
-		D115BFC32D514A3700EA7707 /* XCRemoteSwiftPackageReference "PaxMposSDK" */ = {
+		D115BFC32D514A3700EA7707 /* XCRemoteSwiftPackageReference "finix-pax-mpos-ios-sdk" */ = {
 			isa = XCRemoteSwiftPackageReference;
-			repositoryURL = "https://github.com/finix-payments/PaxMposSDK";
+			repositoryURL = "https://github.com/finix-payments/finix-pax-mpos-ios-sdk";
 			requirement = {
-				branch = main;
-				kind = branch;
+				kind = upToNextMinorVersion;
+				minimumVersion = 1.31.1;
 			};
 		};
 /* End XCRemoteSwiftPackageReference section */
@@ -605,7 +605,7 @@
 /* Begin XCSwiftPackageProductDependency section */
 		D115BFC42D514A3700EA7707 /* PaxMposSDK */ = {
 			isa = XCSwiftPackageProductDependency;
-			package = D115BFC32D514A3700EA7707 /* XCRemoteSwiftPackageReference "PaxMposSDK" */;
+			package = D115BFC32D514A3700EA7707 /* XCRemoteSwiftPackageReference "finix-pax-mpos-ios-sdk" */;
 			productName = PaxMposSDK;
 		};
 /* End XCSwiftPackageProductDependency section */
