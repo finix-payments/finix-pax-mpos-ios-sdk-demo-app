@@ -60,13 +60,6 @@ struct ConfigurationView: View {
                 }
                 
                 HStack {
-                    Text("MID")
-                        .font(Constants.headerFont)
-                        .frame(width: 100, alignment: .leading)
-                    ClearableTextField(title: "Enter Merchant MID", text: currentConfig.merchantMid)
-                }
-                
-                HStack {
                     Text("Buyer ID")
                         .font(Constants.headerFont)
                         .frame(width: 100, alignment: .leading)
@@ -147,9 +140,6 @@ struct ConfigurationView: View {
         }
         if config.merchantId.trim().isEmpty {
             missingFields.append("• Merchant ID")
-        }
-        if config.merchantMid.trim().isEmpty {
-            missingFields.append("• Merchant MID")
         }
         if config.username.trim().isEmpty {
             missingFields.append("• Username")

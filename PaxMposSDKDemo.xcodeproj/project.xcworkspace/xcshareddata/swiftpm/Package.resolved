@@ -15,8 +15,8 @@
       "kind" : "remoteSourceControl",
       "location" : "https://github.com/finix-payments/finix-pax-mpos-ios-sdk",
       "state" : {
-        "revision" : "2abf4f8304b0f31187863360c0a08e97615429af",
-        "version" : "1.31.1"
+        "revision" : "2043df65c83eb2e547eb870d3f8f771d721e22bb",
+        "version" : "1.31.3"
       }
     },
     {

@@ -6,5 +6,5 @@
 //
 
 enum UserDefaultsKey: String {
-    case environment, username, password, merchantId, mid, deviceId
+    case environment, username, password, merchantId, deviceId
 }
