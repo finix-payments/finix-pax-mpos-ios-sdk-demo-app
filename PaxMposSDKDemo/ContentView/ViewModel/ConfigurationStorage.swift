@@ -12,7 +12,6 @@ struct EnvironmentConfiguration: Codable {
     var username: String = ""
     var password: String = ""
     var merchantId: String = ""
-    var merchantMid: String = ""
     var deviceId: String = ""
     private var _buyerIdentityId: String?
     
@@ -28,7 +27,7 @@ struct EnvironmentConfiguration: Codable {
     }
     
     private enum CodingKeys: String, CodingKey {
-        case username, password, merchantId, merchantMid, deviceId, buyerIdentityId
+        case username, password, merchantId, deviceId, buyerIdentityId
     }
     
     init(from decoder: Decoder) throws {
@@ -36,7 +35,6 @@ struct EnvironmentConfiguration: Codable {
         username = try container.decodeIfPresent(String.self, forKey: .username) ?? ""
         password = try container.decodeIfPresent(String.self, forKey: .password) ?? ""
         merchantId = try container.decodeIfPresent(String.self, forKey: .merchantId) ?? ""
-        merchantMid = try container.decodeIfPresent(String.self, forKey: .merchantMid) ?? ""
         deviceId = try container.decodeIfPresent(String.self, forKey: .deviceId) ?? ""
         
         // Only for buyerIdentityId: null → nil, preserve empty strings as-is
@@ -52,7 +50,6 @@ struct EnvironmentConfiguration: Codable {
         try container.encode(username, forKey: .username)
         try container.encode(password, forKey: .password)
         try container.encode(merchantId, forKey: .merchantId)
-        try container.encode(merchantMid, forKey: .merchantMid)
         try container.encode(deviceId, forKey: .deviceId)
         
         // Only for buyerIdentityId: exclude nil from JSON, use "buyerIdentityId" key

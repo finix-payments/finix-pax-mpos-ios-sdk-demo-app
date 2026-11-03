@@ -67,7 +67,6 @@ class ContentViewModel: ObservableObject {
             environment: userSession.allConfigs.selectedEnvironment,
             credentials: Finix.APICredentials(username: configs.username, password: configs.password),
             merchantId: configs.merchantId,
-            mid: configs.merchantMid,
             deviceType: .Pax,
             deviceId: configs.deviceId
         )
@@ -222,7 +221,6 @@ extension ContentViewModel {
             environment: userSession.allConfigs.selectedEnvironment,
             credentials: Finix.APICredentials(username: configs.username, password: configs.password),
             merchantId: configs.merchantId,
-            mid: configs.merchantMid,
             deviceId: configs.deviceId
         )
     }

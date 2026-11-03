@@ -597,7 +597,7 @@
 			repositoryURL = "https://github.com/finix-payments/finix-pax-mpos-ios-sdk";
 			requirement = {
 				kind = upToNextMinorVersion;
-				minimumVersion = 1.31.1;
+				minimumVersion = 1.31.3;
 			};
 		};
 /* End XCRemoteSwiftPackageReference section */
